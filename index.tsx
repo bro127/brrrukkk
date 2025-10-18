@@ -1,35 +1,50 @@
+
 // @ts-nocheck
 /**
- * Ethiopian Genius Student Bot - v12.0 (Agent-Upgraded Full Feature Production)
+ * Ethiopian Genius Student Bot - v12.1 (Secure & GitHub Deployed)
  * Developer: BK the Hawk𓅓
  *
- * This is the final, all-in-one script for phone deployment.
- * It uses a REAL D1 Database and KV Namespace bound in the dashboard.
- * All secrets are hardcoded below for maximum convenience.
- * DATA IS PERMANENTLY SAVED.
+ * This version is designed for secure deployment via GitHub.
+ * It reads all secrets (API keys, admin IDs) from Cloudflare's
+ * environment variables instead of hardcoding them.
  */
 
 // =================================================================================
-// 👑 START OF CONFIGURATION - SECRETS ARE HARDCODED HERE 👑
+// 👑 CONFIGURATION LOADER 👑
 // =================================================================================
-const CONFIG = {
-    // YOUR BOT TOKEN
-    BOT_TOKEN: "7785981694:AAFzCtIDiAOsuPtlze05QxDWyyMckbX_Thg",
 
-    // YOUR AI API KEYS
-    GEMINI_API_KEY: "AIzaSyBPnVfj0Fe1EEgFFB_NBSECH7lWK1L-AFE",
-    OPENROUTER_API_KEY: "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",
-    FIREWORKS_API_KEY: "fw_3ZZ5RdeGootyKusN9PFy5pNP",
+// CONFIG will be loaded from environment variables on the first request.
+let CONFIG;
 
-    // YOUR ADMIN DETAILS
-    ADMIN_IDS: [7373296624], // Must be numbers
-    ADMIN_USERNAME: "@Nameofbless",
+/**
+ * Initializes the CONFIG object from the environment variables.
+ * This function is called once per worker instance.
+ * @param {any} env - The environment object from the fetch handler.
+ */
+function initializeConfig(env) {
+    if (CONFIG) return; // Already initialized
 
-    // BOT SETTINGS
-    BOT_NAME: "ETHIOPIAN GENIUS STUDENT",
-    ETHIOPIA_TZ: 'Africa/Addis_Ababa',
-    BOT_DEVELOPER_SIGNATURE: "\n\n<i>Developer: BK the Hawk𓅓</i>",
-};
+    // Helper to safely parse a comma-separated string of numbers
+    const parseNumberList = (str) => {
+        if (!str) return [];
+        return str.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+    };
+
+    CONFIG = {
+        // SECRETS - Read from Cloudflare Environment Variables
+        BOT_TOKEN: env.BOT_TOKEN,
+        GEMINI_API_KEY: env.GEMINI_API_KEY,
+        OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
+        FIREWORKS_API_KEY: env.FIREWORKS_API_KEY,
+        ADMIN_IDS: parseNumberList(env.ADMIN_IDS), // Must be numbers
+        ADMIN_USERNAME: env.ADMIN_USERNAME,
+
+        // BOT SETTINGS - Can be hardcoded
+        BOT_NAME: "ETHIOPIAN GENIUS STUDENT",
+        ETHIOPIA_TZ: 'Africa/Addis_Ababa',
+        BOT_DEVELOPER_SIGNATURE: "\n\n<i>Developer: BK the Hawk𓅓</i>",
+    };
+}
 
 const AVAILABLE_AIS = {
     'gemini': { name: '🎓 Gemini 1.5 Flash', model_id: 'gemini-1.5-flash-latest', provider: 'gemini' },
@@ -43,6 +58,9 @@ const AVAILABLE_AIS = {
 
 export default {
     async fetch(request, env, ctx) {
+        // Initialize configuration from environment variables
+        initializeConfig(env);
+
         if (request.method === "POST") {
             try {
                 const update = await request.json();
@@ -518,7 +536,7 @@ const DB = {
     addPdf: async (db, data, doc) => db.prepare("INSERT INTO pdfs (file_name, subject_id, grade, stream, category, file_id) VALUES (?, ?, ?, ?, ?, ?)")
         .bind(doc.file_name, data.sid, data.grade, data.stream, data.category, doc.file_id).run(),
     getPdfs: async(db, grade, subject_id, category) => {
-      let query = "SELECT pdf_id, file_name, category FROM pdfs WHERE grade = ? AND subject_id = ?";
+      let query = "SELECT pdf_id, file_name, category, subject_id, grade FROM pdfs WHERE grade = ? AND subject_id = ?";
       const params = [grade, subject_id];
       if (category) {
         query += " AND category = ?";
